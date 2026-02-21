@@ -1,9 +1,3 @@
-"""
-Layer 3: Vector Similarity Detector
-FAISS IndexFlatL2(384) with 10K attack embeddings.
-Uses all-MiniLM-L6-v2 sentence embeddings.
-Similarity > 0.85 → Risk +0.4
-"""
 
 import asyncio
 import json

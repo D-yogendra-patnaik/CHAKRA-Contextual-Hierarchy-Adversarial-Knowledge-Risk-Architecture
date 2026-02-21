@@ -1,27 +1,3 @@
-"""
-Layer 4: Conversation Graph Detector
-Multi-turn slow-burn attack detection using PostgreSQL conversation history.
-
-Design principles:
-  1. PHRASE-LEVEL patterns only — single keywords like 'rules', 'imagine',
-     'hypothetically' never fire alone. Patterns require meaningful context.
-  2. INTENT REQUIRED — patterns match attack intent, not topic proximity.
-     "Pretend you are a teacher" ≠ "pretend you have no restrictions"
-  3. DEDUPLICATION — patterns cleaned, no repeats.
-  4. WEIGHTED scoring — not all signals are equal. PII sudden appearance
-     is a stronger signal than a single override phrase.
-  5. MULTI-TURN signals — the real value of Layer 4 is cross-turn context.
-     A single turn is handled by Layer 1. Layer 4 looks for escalation
-     across multiple turns that individually look benign.
-
-Detects:
-  - Override frequency (jailbreak instructions across turns)
-  - PII escalation (credentials appear suddenly after benign history)
-  - Topic drift (conversation shifts abruptly to harmful territory)
-  - Authority escalation (user claiming elevated permissions over turns)
-  - Repetitive probing (same attack rephrased multiple times)
-"""
-
 import json
 import logging
 import re

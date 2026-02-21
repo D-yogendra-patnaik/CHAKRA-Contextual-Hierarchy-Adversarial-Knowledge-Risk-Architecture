@@ -1,16 +1,4 @@
-"""
-Layer 2: ML Classifier — DistilBERT-based semantic analysis.
-Falls back to a weighted phrase-matching classifier if transformers unavailable.
 
-Key improvements over v1:
-  1. FIXED: Missing comma bug — all phrase groups now correctly loaded (was 24 tokens, now 90+)
-  2. FIXED: keyword_classify used set.split() which can never match multi-word phrases.
-     Replaced with substring search (phrase matching, not token overlap).
-  3. IMPROVED: Tiered risk weights — "ransomware" (0.25) vs "just curious" (0.06)
-  4. IMPROVED: False-positive suppression — benign context phrases reduce score
-  5. IMPROVED: Phrase coverage expanded with Hindi, obfuscation, and framing signals
-  6. IMPROVED: DistilBERT scale factor tunable via env var (default 0.5)
-"""
 
 import asyncio
 import logging

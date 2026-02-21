@@ -1,14 +1,4 @@
-"""
-Policy Manager — multi-tenant adaptive thresholds.
 
-Calibrated defaults:
-  block_threshold: score above which request is rejected (HTTP 403)
-  warn_threshold:  score above which request is flagged but allowed
-
-The warn_threshold for 'default' is set to 0.22 so that the ML layer
-alone (baseline ~0.24 on suspicious-adjacent topics) triggers WARN
-without requiring a heuristic hit.
-"""
 
 import json
 import logging

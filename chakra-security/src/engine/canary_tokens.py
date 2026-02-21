@@ -1,7 +1,3 @@
-"""
-Canary Token Engine — injects invisible breach-detection tokens into responses.
-When a canary URL is fetched, it signals data exfiltration.
-"""
 
 import hashlib
 import logging

@@ -1,7 +1,3 @@
-"""
-Layer 5: PII Scanner
-Detects Indian PII (Aadhaar, PAN, IFSC, UPI, mobile) and global PII.
-"""
 
 import re
 import logging

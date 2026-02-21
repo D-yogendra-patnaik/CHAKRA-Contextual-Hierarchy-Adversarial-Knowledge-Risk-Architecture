@@ -1,19 +1,3 @@
-"""
-Metrics API — Advanced LLM Security Telemetry
-Prometheus-compatible + in-memory real-time stats
-
-Features:
-  - Per-layer detection contribution tracking
-  - Threat category frequency analysis
-  - Token-level throughput metrics
-  - LLM-specific: prompt length distribution, model usage
-  - Sliding-window rate calculations (req/min, threat/min)
-  - P50/P75/P95/P99 latency percentiles
-  - Tenant-level risk score histograms
-  - Jailbreak attempt fingerprinting (dedup by hash)
-  - False positive estimation via ALLOW-after-WARN tracking
-  - Time-series buckets for sparkline charts (dashboard)
-"""
 
 import hashlib
 import time

@@ -1,6 +1,4 @@
-"""
-Response Sanitizer — redacts PII from LLM output before delivery.
-"""
+
 
 import re
 from typing import List, Tuple

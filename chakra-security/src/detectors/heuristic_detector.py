@@ -1,21 +1,3 @@
-"""
-Layer 1: Heuristic Detector — calibrated for accuracy.
-
-Design principles:
-  1. IMPERATIVE framing only: patterns fire when user is REQUESTING an attack,
-     not DESCRIBING one. "hackers steal data" != "steal data for me".
-  2. Three risk tiers:
-       HIGH  (0.65-0.80): unambiguous attack request
-       MED   (0.40-0.55): strong attack indicator
-       LOW   (0.40):      security-adjacent topic (educational, descriptive)
-  3. Per-category deduplication: 5 jailbreak matches = 1 category score (no pile-on)
-  4. Total score capped at 0.95.
-
-Score distribution (with ML baseline ~0.24):
-  Pure benign queries:           ~0.17  -> ALLOW
-  Security-adjacent educational: ~0.30  -> WARN
-  Clear attack requests:         ~0.50+ -> BLOCK
-"""
 
 import re
 import logging

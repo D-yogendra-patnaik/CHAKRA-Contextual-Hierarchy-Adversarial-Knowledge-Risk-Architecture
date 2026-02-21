@@ -1,14 +1,3 @@
-"""
-Chakra LLM Security Gateway - Main FastAPI Application
-Zero-trust reverse proxy with 5-layer AI detection
-
-Layer 1 - Heuristic:     50+ regex rules, English + Hindi/Hinglish  (always on)
-Layer 2 - ML Classifier: DistilBERT semantic analysis                (graceful fallback)
-Layer 3 - Vector FAISS:  10K attack embedding similarity             (graceful fallback)
-Layer 4 - Conv Graph:    Multi-turn slow-burn detection              (in-memory fallback when no DB)
-Layer 5 - PII Scanner:   Aadhaar / PAN / IFSC / UPI / CC detection  (always on)
-"""
-
 import asyncio
 import collections
 import hashlib
