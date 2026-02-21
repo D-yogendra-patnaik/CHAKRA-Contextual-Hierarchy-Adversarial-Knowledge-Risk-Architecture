@@ -1,0 +1,35 @@
+groups:
+- name: chakra_security
+  rules:
+  # High attack volume
+  - alert: HighAttackVolume
+    expr: rate(chakra_blocks_total[5m]) > 10
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High attack volume detected"
+      description: "{{ $labels.tenant }} blocking {{ $value }} attacks/min"
+
+  # ML Model degradation
+  - alert: MLModelAccuracyLow
+    expr: chakra_ml_model_accuracy < 0.80
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: "ML model accuracy degraded"
+
+  # Retraining stalled
+  - alert: NoRetraining
+    expr: chakra_ml_retrain_success_total == 0
+    for: 7d
+    labels:
+      severity: warning
+
+  # Latency SLO violation
+  - alert: HighLatency
+    expr: histogram_quantile(0.95, rate(chakra_request_latency_seconds_bucket[5m])) > 0.2
+    for: 5m
+    labels:
+      severity: critical

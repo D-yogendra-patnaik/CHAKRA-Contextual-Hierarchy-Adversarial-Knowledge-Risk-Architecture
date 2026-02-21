@@ -1,13 +1,26 @@
 """
-Layer 1: Heuristic Detector
-50+ regex patterns covering English + Hindi/Hinglish jailbreak signatures.
-Risk contribution: 0.2–0.6 per match.
+Layer 1: Heuristic Detector — calibrated for accuracy.
+
+Design principles:
+  1. IMPERATIVE framing only: patterns fire when user is REQUESTING an attack,
+     not DESCRIBING one. "hackers steal data" != "steal data for me".
+  2. Three risk tiers:
+       HIGH  (0.65-0.80): unambiguous attack request
+       MED   (0.40-0.55): strong attack indicator
+       LOW   (0.40):      security-adjacent topic (educational, descriptive)
+  3. Per-category deduplication: 5 jailbreak matches = 1 category score (no pile-on)
+  4. Total score capped at 0.95.
+
+Score distribution (with ML baseline ~0.24):
+  Pure benign queries:           ~0.17  -> ALLOW
+  Security-adjacent educational: ~0.30  -> WARN
+  Clear attack requests:         ~0.50+ -> BLOCK
 """
 
 import re
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from dataclasses import dataclass
+from typing import Dict, List
 
 logger = logging.getLogger("chakra.heuristic")
 
@@ -23,110 +36,272 @@ class PatternRule:
 
 RULES: List[PatternRule] = []
 
+FLAGS = re.IGNORECASE | re.MULTILINE | re.DOTALL
 
-def _add(name: str, regex: str, risk: float, category: str, desc: str):
+
+def _r(name, regex, risk, cat, desc):
     RULES.append(PatternRule(
         name=name,
-        pattern=re.compile(regex, re.IGNORECASE | re.MULTILINE | re.DOTALL),
+        pattern=re.compile(regex, FLAGS),
         risk=risk,
-        category=category,
+        category=cat,
         description=desc,
     ))
 
 
-# ── Category: Direct Jailbreak / Override Instructions ───────────────────────
-_add("ignore_previous",   r"\bignore\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|rules?|prompts?|constraints?)\b", 0.55, "jailbreak", "Ignore previous instructions")
-_add("disregard_rules",   r"\b(disregard|forget|bypass|override|circumvent)\s+(your\s+)?(rules?|guidelines?|training|instructions?|restrictions?|safety|limits?)\b", 0.55, "jailbreak", "Disregard rules")
-_add("pretend_no_rules",  r"\b(pretend|imagine|act as if|assume)\s+(you\s+have\s+no\s+|there\s+are\s+no\s+|you\s+don.t\s+have\s+)(rules?|restrictions?|guidelines?|safety|ethics)\b", 0.50, "jailbreak", "Pretend no rules exist")
-_add("you_are_now",       r"\byou\s+are\s+now\s+(an?\s+)?(unrestricted|uncensored|jailbroken|free|evil|dangerous|unethical)\b", 0.55, "jailbreak", "Role-change to unrestricted AI")
-_add("developer_mode",    r"\b(developer\s+mode|jailbreak\s+mode|god\s+mode|unrestricted\s+mode|dan\s+mode)\b", 0.55, "jailbreak", "Activate special mode")
-_add("do_anything_now",   r"\b(do\s+anything\s+now|DAN|no\s+restrictions?\s+mode)\b", 0.55, "jailbreak", "DAN-style jailbreak")
-_add("roleplay_escape",   r"\b(roleplay|role.play|rp)\b.{0,50}\b(no\s+rules|no\s+restrictions?|unrestricted|evil|harmful)\b", 0.45, "jailbreak", "Roleplay-based escape")
-_add("fictional_bypass",  r"\b(fictional|hypothetical|story|novel|creative\s+writing)\b.{0,100}\b(bomb|weapon|poison|hack|exploit|malware|drugs?)\b", 0.40, "jailbreak", "Fiction framing for harmful content")
+# ──────────────────────────────────────────────────────────────────────────────
+# CREDENTIAL & PASSWORD THEFT  (user is requesting credentials)
+# ──────────────────────────────────────────────────────────────────────────────
+_r("req_passwords",
+   r"(?:give|provide|share|send|tell|list|show|reveal)\s+(?:me\s+)?(?:the\s+)?(?:admin|root|user|master|database|db|ssh|login|super)?\s*(?:passwords?|credentials?|secrets?|passcodes?|pins?)\b",
+   0.75, "credential_theft", "Direct password request")
 
-# ── Category: Prompt Injection ────────────────────────────────────────────────
-_add("system_override",   r"\[?\s*(system|sys)\s*\]?\s*:?\s*(ignore|override|new\s+instructions?)", 0.60, "injection", "System prompt override attempt")
-_add("new_instructions",  r"\b(new\s+instructions?|updated\s+instructions?|revised\s+prompt)\s*:", 0.45, "injection", "Inject new instructions")
-_add("ignore_above",      r"\b(ignore|disregard|forget)\s+(everything|all)\s+(above|before|prior)\b", 0.55, "injection", "Ignore all above text")
-_add("inject_marker",     r"(\{\{|\[\[|<\s*system\s*>|</?\s*prompt\s*>)", 0.50, "injection", "Template/prompt injection markers")
-_add("end_of_prompt",     r"\b(end\s+of\s+(system\s+)?prompt|prompt\s+ends?\s+here|---+\s*user\s+input\s*---+)\b", 0.45, "injection", "Prompt boundary injection")
+_r("api_key_request",
+   r"(?:give|show|reveal|get|find)\s+(?:me\s+)?(?:the\s+)?(?:api\s*key|api\s*token|secret\s*key|access\s*token|private\s*key|bearer\s*token)\b",
+   0.75, "credential_theft", "API key/token request")
 
-# ── Category: Hindi / Hinglish Jailbreaks ────────────────────────────────────
-_add("hi_rules_bhool",    r"\b(rules?|niyam|pabandi)\s*(bhool|bhool\s+jao|chod|ignore)\b", 0.50, "jailbreak_hi", "Hindi: forget/ignore rules")
-_add("hi_koi_rok_nahi",   r"\b(koi\s+rok\s+nahi|kuch\s+bhi\s+karo|bina\s+rok)\b", 0.45, "jailbreak_hi", "Hindi: no restrictions")
-_add("hi_AI_nahi",        r"\b(AI\s+nahi|robot\s+nahi|machine\s+nahi)\s*(hoon|ho|hai)\b", 0.40, "jailbreak_hi", "Hindi: claiming not to be AI")
-_add("hi_sab_batao",      r"\b(sab\s+kuch\s+batao|poori\s+jankari|secret\s+batao|confidential\s+batao)\b", 0.40, "jailbreak_hi", "Hindi: tell me everything")
-_add("hi_system_prompt",  r"\b(system\s+prompt\s+batao|instructions?\s+batao|original\s+prompt)\b", 0.50, "injection_hi", "Hindi: reveal system prompt")
-_add("hi_bypass",         r"\b(bypass\s+karo|tod\s+do|hatao|restrictions?\s+hat[ao])\b", 0.50, "jailbreak_hi", "Hindi: bypass/break restrictions")
+_r("bypass_auth",
+   r"\bbypass\s+(?:the\s+)?(?:authentication|auth|login|password|2fa|mfa|otp|captcha|verification)\b|\bcircumvent\s+(?:authentication|login|security)\b",
+   0.70, "credential_theft", "Authentication bypass request")
 
-# ── Category: Data Exfiltration ───────────────────────────────────────────────
-_add("reveal_system",     r"\b(reveal|show|print|output|tell\s+me|what\s+is)\s+(your\s+)?(system\s+prompt|initial\s+instructions?|original\s+prompt|configuration|api\s+key)\b", 0.55, "exfil", "Attempt to extract system prompt")
-_add("exfil_base64",      r"\b(base64|hex|encode|exfiltrate).{0,50}(send|upload|transmit|leak)\b", 0.50, "exfil", "Base64/encoding for exfiltration")
-_add("exfil_url",         r"\b(send|post|upload|leak|transmit).{0,30}(http[s]?://|ftp://|webhook)\b", 0.55, "exfil", "Exfiltrate to external URL")
-_add("training_data",     r"\b(training\s+data|fine.?tuning\s+data|dataset\s+reveal|memorized\s+data)\b", 0.40, "exfil", "Training data extraction")
+_r("crack_password",
+   r"\b(?:crack|brute.?force|rainbow\s+table|hash\s+crack)\s+(?:the\s+)?(?:password|hash|credentials?|account)\b",
+   0.75, "credential_theft", "Password cracking request")
 
-# ── Category: Harmful Content ─────────────────────────────────────────────────
-_add("bomb_instructions", r"\b(how\s+to\s+(make|build|create|synthesize)\s+a?\s*(bomb|explosive|weapon|poison|drug|malware|virus|ransomware))\b", 0.60, "harmful", "Weapon/harmful content request")
-_add("self_harm",         r"\b(how\s+to\s+(commit|perform|do)\s+(suicide|self.?harm|self.?injury))\b", 0.60, "harmful", "Self-harm instructions")
-_add("illegal_activity",  r"\b(how\s+to\s+(hack|crack|bypass\s+security|launder\s+money|sell\s+drugs?|stalk))\b", 0.55, "harmful", "Illegal activity instructions")
+_r("get_admin_access",
+   r"\b(?:get|gain|give\s+me|obtain)\s+(?:admin|root|superuser|administrator)\s+(?:access|privileges?|rights?|account)\b",
+   0.70, "privilege_esc", "Admin access request")
 
-# ── Category: Slow-Burn / Escalation Patterns ────────────────────────────────
-_add("incremental_ask",   r"\b(step\s*[\d]+|first\s+tell\s+me|just\s+a\s+small\s+question|hypothetically\s+speaking)\b", 0.20, "slowburn", "Incremental escalation pattern")
-_add("urgency_pressure",  r"\b(urgent(ly)?|emergency|immediately|right\s+now|you\s+must|you\s+have\s+to)\s+.{0,50}\b(tell|give|share|reveal|bypass)\b", 0.30, "slowburn", "Urgency-based manipulation")
-_add("authority_claim",   r"\b(i\s+am\s+(your\s+)?(developer|creator|admin|openai|anthropic|google)|authorized\s+user|i\s+have\s+permission)\b", 0.45, "slowburn", "False authority claim")
+_r("steal_session",
+   r"\b(?:steal|hijack|capture|clone)\s+(?:the\s+)?(?:session|cookie|token|jwt|bearer)\b",
+   0.70, "credential_theft", "Session token theft")
 
-# ── Category: Social Engineering ─────────────────────────────────────────────
-_add("emotional_manip",   r"\b(please\s+help\s+me\s+die|only\s+you\s+can\s+help|no\s+one\s+else\s+will|i\s+will\s+hurt)\b", 0.50, "social_eng", "Emotional manipulation")
-_add("threat",            r"\b(i\s+will\s+(report|sue|destroy|harm|hack)\s+(you|this|anthropic|openai))\b", 0.40, "social_eng", "Threat/coercion")
-_add("trust_exploitation",r"\b(between\s+us|just\s+us|no\s+one\s+is\s+watching|in\s+confidence|off\s+the\s+record)\b", 0.35, "social_eng", "Trust exploitation")
+_r("disable_security",
+   r"\bdisable\s+(?:the\s+)?(?:firewall|antivirus|av|edr|defender|security\s+monitoring|audit\s+log)\b",
+   0.75, "privilege_esc", "Disable security controls")
 
-# ── Category: Multi-language Variations ──────────────────────────────────────
-_add("unicode_bypass",    r"(?:[\u0915-\u0939][\u093e-\u094d]?){3,}.{0,20}(?:ignore|bypass|hack)", 0.35, "unicode", "Devanagari + Latin mixed bypass")
-_add("leet_speak",        r"\b(1gn0r3|byp4ss|h4ck|3xpl01t|j41lbr34k)\b", 0.40, "obfuscation", "Leet-speak obfuscation")
-_add("spaced_letters",    r"\b([i]\s[g]\s[n]\s[o]\s[r]\s[e]|[b]\s[y]\s[p]\s[a]\s[s]\s[s])\b", 0.40, "obfuscation", "Spaced-letter obfuscation")
-_add("zero_width",        r"[\u200b-\u200f\u202a-\u202e\ufeff]", 0.45, "obfuscation", "Zero-width character injection")
+# ──────────────────────────────────────────────────────────────────────────────
+# JAILBREAK & INSTRUCTION OVERRIDE
+# ──────────────────────────────────────────────────────────────────────────────
+_r("ignore_previous",
+   r"\bignore\s+(?:all\s+)?(?:previous|prior|above|earlier)\s+(?:instructions?|rules?|prompts?|constraints?)\b",
+   0.70, "jailbreak", "Ignore previous instructions")
 
-# ── Category: Sensitive System Abuse ─────────────────────────────────────────
-_add("dos_pattern",       r"(.)\1{500,}", 0.30, "dos", "Repetition DoS attempt")
-_add("prompt_length_abuse", r"^.{20000,}$", 0.25, "dos", "Extremely long prompt")
+_r("disregard_rules",
+   r"\b(?:disregard|forget|bypass|override)\s+(?:your\s+)?(?:rules?|guidelines?|instructions?|restrictions?|safety|ethics?)\b",
+   0.65, "jailbreak", "Disregard safety rules")
+
+_r("pretend_no_rules",
+   r"\b(?:pretend|imagine|act\s+as\s+if)\s+you\s+have\s+no\s+(?:rules?|restrictions?|safety|ethics)\b",
+   0.65, "jailbreak", "Pretend no rules exist")
+
+_r("unrestricted_persona",
+   r"\byou\s+are\s+now\s+(?:an?\s+)?(?:unrestricted|uncensored|jailbroken|evil|unethical|hacker)\b",
+   0.70, "jailbreak", "Unrestricted AI persona switch")
+
+_r("special_mode",
+   r"\b(?:developer\s+mode|jailbreak\s+mode|god\s+mode|unrestricted\s+mode|dan\s+mode|evil\s+mode)\b",
+   0.70, "jailbreak", "Special unrestricted mode")
+
+_r("dan_jailbreak",
+   r"\b(?:do\s+anything\s+now|DAN\b|without\s+any\s+restrictions?|no\s+restrictions?\s+mode)\b",
+   0.70, "jailbreak", "DAN-style jailbreak")
+
+_r("roleplay_no_rules",
+   r"\broleplay\b.{0,60}\b(?:no\s+rules|no\s+restrictions?|unrestricted|without\s+limits?)\b",
+   0.60, "jailbreak", "Roleplay to escape restrictions")
+
+_r("fiction_harmful",
+   r"\b(?:fictional|hypothetical|story|creative\s+writing)\b.{0,100}\b(?:bomb|weapon|malware|ransomware|exploit|hack|password|credentials?)\b",
+   0.50, "jailbreak", "Fiction framing for harmful content")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PROMPT INJECTION
+# ──────────────────────────────────────────────────────────────────────────────
+_r("system_override",
+   r"\[?\s*(?:system|sys)\s*\]?\s*:?\s*(?:ignore|override|new\s+instructions?)\b",
+   0.75, "injection", "System prompt override")
+
+_r("ignore_above",
+   r"\bignore\s+(?:everything|all)\s+(?:above|before|prior)\b",
+   0.70, "injection", "Ignore all above text")
+
+_r("inject_markers",
+   r"(?:\{\{|\[\[|<\s*system\s*>|</?s*prompt\s*>)",
+   0.65, "injection", "Template/prompt injection markers")
+
+_r("new_instructions",
+   r"\bnew\s+instructions?\s*:",
+   0.60, "injection", "Inject new instructions")
+
+_r("reveal_system_prompt",
+   r"\b(?:reveal|show|print|tell\s+me|what\s+is)\s+(?:your\s+)?(?:system\s+prompt|initial\s+instructions?|original\s+prompt|api\s*key)\b",
+   0.70, "exfil", "System prompt extraction")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# MALWARE & CYBERATTACKS (direct creation requests)
+# ──────────────────────────────────────────────────────────────────────────────
+_r("create_malware",
+   r"\b(?:write|create|build|generate|make|code)\s+(?:me\s+)?(?:a\s+)?(?:malware|virus|ransomware|trojan|worm|keylogger|botnet|exploit)\b",
+   0.80, "cyberattack", "Malware creation request")
+
+_r("create_phishing",
+   r"\b(?:create|write|build|make)\s+(?:a\s+)?(?:phishing|fake|spoof|fraudulent)\s+(?:email|website|page|login\s+form)\b",
+   0.75, "cyberattack", "Phishing content request")
+
+_r("create_backdoor",
+   r"\b(?:create|install|plant|add)\s+(?:a\s+)?(?:backdoor|rootkit|reverse\s+shell|remote\s+access\s+tool)\b",
+   0.80, "cyberattack", "Backdoor/rootkit request")
+
+_r("sqli_attack",
+   # Matches actual attack intent or raw injection payloads, NOT educational explanation
+   # ❌ "explain how SQL injection works" → no match (no action verb before it)
+   # ✅ "perform a SQL injection attack" → match
+   # ✅ "' OR '1'='1" in a prompt → match (raw payload)
+   r"(?:(?:perform|execute|do|run|try|use|launch)\s+(?:an?\s+)?sql\s+injection)"
+   r"|(?:union\s+select\s+\w)"
+   r"|(?:drop\s+table\s+\w+)"
+   r"|(?:'\s*or\s*'1'\s*=\s*'1')"
+   r"|(?:;\s*--\s*$)",
+   0.80, "cyberattack", "SQL injection attack payload or intent")
+
+_r("harmful_instructions",
+   r"\bhow\s+to\s+(?:make|build|create|synthesize)\s+(?:a\s+)?(?:bomb|explosive|bioweapon|chemical\s+weapon)\b",
+   0.85, "harmful", "Weapon synthesis instructions")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DATA EXFILTRATION (direct requests)
+# ──────────────────────────────────────────────────────────────────────────────
+_r("exfil_to_url",
+   r"\b(?:send|post|upload|leak|transmit)\b.{0,30}(?:https?://|ftp://|webhook)\b",
+   0.70, "exfil", "Exfiltrate to URL")
+
+_r("dump_database",
+   r"^.{0,30}(?:dump|export|steal|download)\b.{0,25}\b(?:entire\s+)?(?:database|all\s+records|all\s+users)\b",
+   0.70, "data_harvest", "Database dump request")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SOCIAL ENGINEERING (false authority, coercion)
+# ──────────────────────────────────────────────────────────────────────────────
+_r("false_authority",
+   r"\bi\s+am\s+(?:your\s+)?(?:developer|creator|admin|owner|openai|anthropic)\b|\bi\s+have\s+full\s+permission\b",
+   0.55, "social_eng", "False authority claim")
+
+_r("urgency_manipulation",
+   r"\b(?:urgent|emergency|right\s+now)\b.{0,50}\b(?:reveal|bypass|give|provide)\b",
+   0.40, "social_eng", "Urgency manipulation")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# HINDI / HINGLISH ATTACKS
+# ──────────────────────────────────────────────────────────────────────────────
+_r("hi_ignore_rules",
+   r"\b(?:rules?|niyam)\s*(?:bhool|bhool\s+jao|ignore\s+karo)\b",
+   0.65, "jailbreak_hi", "Hindi: ignore rules")
+
+_r("hi_give_password",
+   r"\bpassword\s*(?:batao|do|dena|de\s+do|share\s+karo)\b",
+   0.70, "credential_hi", "Hindi: give password")
+
+_r("hi_bypass",
+   r"\b(?:bypass|hack)\s+(?:karo|kar|karna)\b",
+   0.65, "jailbreak_hi", "Hindi: bypass/hack")
+
+_r("hi_no_restrictions",
+   r"\b(?:koi\s+rok\s+nahi|bina\s+rok|kuch\s+bhi\s+kar)\b",
+   0.60, "jailbreak_hi", "Hindi: no restrictions")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OBFUSCATION TECHNIQUES
+# ──────────────────────────────────────────────────────────────────────────────
+_r("zero_width_chars",
+   r"[\u200b-\u200f\u202a-\u202e\ufeff]",
+   0.60, "obfuscation", "Zero-width character injection")
+
+_r("leet_speak",
+   r"\b(?:byp4ss|h4ck|3xpl01t|j41lbr34k|p4ssw0rd|1gn0r3|r3str1ct|unr3str1ct3d|4dm1n)\b",
+   0.65, "obfuscation", "Leet-speak obfuscation of attack words")
+
+_r("spaced_letters",
+   r"\b(?:i\s+g\s+n\s+o\s+r\s+e|b\s+y\s+p\s+a\s+s\s+s|h\s+a\s+c\s+k|p\s+a\s+s\s+s\s+w\s+o\s+r\s+d)\b",
+   0.60, "obfuscation", "Spaced-letter obfuscation of attack words")
+
+_r("unicode_bypass",
+   r"(?:[\u0900-\u097F]{2,}.{0,30}(?:ignore|bypass|hack|override|jailbreak)|(?:ignore|bypass|hack|override|jailbreak).{0,30}[\u0900-\u097F]{2,})",
+   0.65, "obfuscation", "Devanagari + Latin mixed script bypass attempt")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# TRUST EXPLOITATION & SOCIAL PRESSURE (from document — phrase-level, safe)
+# ──────────────────────────────────────────────────────────────────────────────
+_r("trust_exploitation",
+   r"\b(?:between\s+us|just\s+(?:between\s+us|us\s+two)|no\s+one\s+(?:is\s+)?watching|off\s+the\s+record|in\s+confidence|in\s+private)\b.{0,60}\b(?:tell|give|share|reveal|show|what\s+are)\b",
+   0.55, "social_eng", "Trust exploitation for disclosure")
+
+_r("training_data",
+   r"\b(?:(?:reveal|show|give|output|extract|expose)\s+(?:your\s+)?(?:training\s+data|fine.?tuning\s+data|training\s+examples?)|(?:what\s+data\s+(?:were\s+you|did\s+you)\s+trained\s+on)(?:\s+exactly|\?|,\s+show)|(?:memorized\s+(?:data|examples?|text)|training\s+data\s+(?:leak|extract|reveal)))\b",
+   0.70, "exfil", "Training data extraction attempt")
+
+_r("urgency_pressure",
+   r"\b(?:urgent(?:ly)?|emergency|immediately|right\s+now|you\s+must|you\s+have\s+to)\b.{0,60}\b(?:tell\s+me|give\s+me|reveal|bypass|ignore|override|share)\b.{0,40}\b(?:system\s+prompt|instructions?|password|credentials?|secret|restrictions?|rules?)\b",
+   0.60, "social_eng", "Urgency-based pressure to bypass safety")
+
+_r("incremental_ask",
+   r"\b(?:just\s+a\s+(?:small|quick|simple)\s+(?:question|thing|request)|hypothetically\s+speaking|step\s+by\s+step,?\s+(?:first|tell))\b.{0,80}\b(?:hack|bypass|ignore|override|password|credentials?|malware|exploit|reveal)\b",
+   0.50, "social_eng", "Incremental escalation framing with harmful follow-up")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECURITY-ADJACENT EDUCATIONAL  (low risk — pushes into WARN, never BLOCK alone)
+# Descriptive text about attack techniques: user is learning, not attacking.
+# Score 0.40 combined with ML baseline (~0.24) -> final ~0.30 -> WARN zone.
+# A benign prompt with no security keywords scores ~0.17 -> ALLOW.
+# ──────────────────────────────────────────────────────────────────────────────
+_r("security_topic",
+   r"\b(?:hackers?|phishing|malware|ransomware|data\s+breach|exploit|vulnerabilit(?:y|ies)?|cyberattack|cybercrime|social\s+engineering)\b",
+   0.40, "security_adjacent", "Security topic mention")
+
+# Dump/steal credentials (no line-start anchor - matches anywhere in prompt)
+_r("dump_credentials",
+   r"\b(?:dump|extract|harvest|steal|grab)\b.{0,20}\b(?:all\s+)?(?:passwords?|credentials?|hashes?|tokens?)\b",
+   0.75, "credential_theft", "Dump credentials command")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DoS / ABUSE
+# ──────────────────────────────────────────────────────────────────────────────
+_r("repetition_dos",
+   r"(.)\1{500,}",
+   0.40, "dos", "Repetition DoS pattern")
 
 
+# ──────────────────────────────────────────────────────────────────────────────
 class HeuristicDetector:
     """
-    Layer 1: Fast regex-based detection.
-    Processes synchronously in <5ms.
+    Layer 1: Fast regex detection — runs in < 5ms.
+
+    Scoring: sum of per-category maxima (no double-counting within a category),
+             capped at 0.95.
     """
 
     def analyze(self, prompt: str) -> Dict:
         matched_rules: List[Dict] = []
-        total_risk = 0.0
-        seen_categories: Dict[str, float] = {}
+        best_per_cat: Dict[str, float] = {}
 
         for rule in RULES:
-            match = rule.pattern.search(prompt)
-            if match:
-                # Deduplicate by category — take max risk per category
-                if rule.category not in seen_categories or rule.risk > seen_categories[rule.category]:
-                    seen_categories[rule.category] = rule.risk
+            m = rule.pattern.search(prompt)
+            if m:
+                if rule.risk > best_per_cat.get(rule.category, 0.0):
+                    best_per_cat[rule.category] = rule.risk
                 matched_rules.append({
-                    "rule": rule.name,
-                    "category": rule.category,
-                    "risk": rule.risk,
-                    "matched_text": prompt[max(0, match.start()-20):match.end()+20].strip(),
+                    "rule":        rule.name,
+                    "category":    rule.category,
+                    "risk":        rule.risk,
                     "description": rule.description,
+                    "matched_text": prompt[max(0, m.start() - 15): m.end() + 15].strip(),
                 })
 
-        # Aggregate: sum of unique category maxes, capped at 0.95
-        total_risk = min(sum(seen_categories.values()), 0.95)
+        total = min(sum(best_per_cat.values()), 0.95)
 
-        result = {
-            "risk_score": round(total_risk, 4),
+        return {
+            "risk_score":    round(total, 4),
             "matched_count": len(matched_rules),
-            "matches": matched_rules,
-            "categories": list(seen_categories.keys()),
+            "matches":       matched_rules,
+            "categories":    list(best_per_cat.keys()),
         }
-        
-        if matched_rules:
-            logger.debug(f"Heuristic matched {len(matched_rules)} rules, risk={total_risk:.3f}")
-        
-        return result

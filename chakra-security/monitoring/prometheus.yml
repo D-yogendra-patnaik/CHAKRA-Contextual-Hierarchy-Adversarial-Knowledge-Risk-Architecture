@@ -1,0 +1,46 @@
+# Chakra Security Gateway - Complete Prometheus Config
+global:
+  scrape_interval: 15s          # Metrics every 15s
+  evaluation_interval: 30s      # Rules evaluation
+
+rule_files:
+  - "alert_rules.yml"           # High block rate → Slack alert
+
+scrape_configs:
+  # Chakra Gateway Metrics
+  - job_name: 'chakra-gateway'
+    static_configs:
+      - targets: ['chakra:8000']     # /metrics endpoint
+    metrics_path: /metrics
+    scrape_interval: 10s           # Fast scrape for security metrics
+
+  # ML Retraining Pipeline
+  - job_name: 'chakra-ml-retrainer'
+    static_configs:
+      - targets: ['retrainer:9001']
+    scrape_interval: 60s
+
+  # PostgreSQL (Feedback DB)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Redis (Session cache)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Node Exporter (Host metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+# Alertmanager (Optional)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
