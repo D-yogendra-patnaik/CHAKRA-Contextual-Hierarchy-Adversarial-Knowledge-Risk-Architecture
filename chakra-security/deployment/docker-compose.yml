@@ -1,0 +1,96 @@
+version: "3.9"
+
+services:
+  chakra-gateway:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_URL=postgresql://chakra:${POSTGRES_PASSWORD:-changeme}@postgres:5432/chakra
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_UPSTREAM_URL=${LLM_UPSTREAM_URL:-https://api.openai.com}
+      - RATE_LIMIT_RPM=${RATE_LIMIT_RPM:-100}
+      - POLICY_DIR=/app/data/policies
+      - CANARY_DOMAIN=${CANARY_DOMAIN:-canarytokens.chakra.internal}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - chakra-net
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: chakra
+      POSTGRES_USER: chakra
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chakra -d chakra"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - chakra-net
+
+  redis:
+    image: redis:7-alpine
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-changeme}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - chakra-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - chakra-net
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/chakra.json:ro
+    networks:
+      - chakra-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  grafana_data:
+
+networks:
+  chakra-net:
+    driver: bridge

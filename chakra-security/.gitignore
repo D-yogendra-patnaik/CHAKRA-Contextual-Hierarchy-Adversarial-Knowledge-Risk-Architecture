@@ -1,0 +1,91 @@
+# ── Python ───────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.Python
+*.so
+
+# ── Virtual Environments ─────────────────────────
+chakra_env/
+venv/
+.venv/
+env/
+ENV/
+
+# ── ML Models & Embeddings (large binary files) ──
+*.bin
+*.pt
+*.pth
+*.onnx
+*.pkl
+*.pickle
+*.h5
+*.safetensors
+models/
+checkpoints/
+.cache/
+huggingface/
+
+# ── FAISS Index Files ────────────────────────────
+*.faiss
+*.index
+data/vectors/
+
+# ── Environment & Secrets ────────────────────────
+.env
+.env.*
+*.env
+secrets.yaml
+secrets.json
+config/local.py
+
+# ── Database ─────────────────────────────────────
+*.db
+*.sqlite3
+*.sql
+pgdata/
+
+# ── Logs ─────────────────────────────────────────
+*.log
+logs/
+*.log.*
+
+# ── Docker ───────────────────────────────────────
+.docker/
+docker-compose.override.yml
+
+# ── IDE / Editor ─────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Testing & Coverage ───────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── Build / Dist ─────────────────────────────────
+dist/
+build/
+*.egg-info/
+site/
+
+# ── Jupyter ──────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Node (dashboard dependencies if any) ─────────
+node_modules/
+npm-debug.log
+
+# ── Chakra-specific ───────────────────────────────
+data/policies/*.json.bak
+src/dashboard/*.bak
+audit_exports/
+canary_tokens.json

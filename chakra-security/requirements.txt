@@ -1,0 +1,47 @@
+# Chakra LLM Security Gateway - COMPLETE PRODUCTION STACK
+
+# === CORE FRAMEWORK ===
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# === DATABASE ===
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+psycopg[binary]==3.1.18
+alembic==1.13.1
+
+# === ML & NLP (COMPLETE) ⭐ ADDED MISSING ⭐
+transformers==4.37.0
+torch==2.9.1
+sentence-transformers==2.3.1
+faiss-cpu==1.13.2
+accelerate==0.27.2          # ⭐ ADDED: Model optimization
+tokenizers==0.15.2          # ⭐ ADDED: Fast tokenization
+numpy==1.26.3
+scikit-learn==1.4.0
+pandas==2.1.4               # ⭐ ADDED: Data processing
+
+# === CACHING & ASYNC TASKS
+redis==5.0.1
+aioredis==2.0.1
+celery==5.3.6               # ⭐ ADDED: Background retraining
+flower==2.0.1               # ⭐ ADDED: Celery monitoring
+
+# === HTTP & MONITORING
+httpx==0.26.0
+aiohttp==3.9.1
+prometheus-client==0.19.0
+python-json-logger==2.0.7
+
+# === SECURITY
+python-jose[cryptography]==3.3.0
+passlib==1.7.4
+python-multipart==0.0.6
+
+# === UTILITIES & TESTING
+python-dotenv==1.0.0
+tenacity==8.2.3
+pytest==7.4.3               # ⭐ ADDED: Testing
+pytest-asyncio==0.21.1      # ⭐ ADDED: Async testing
