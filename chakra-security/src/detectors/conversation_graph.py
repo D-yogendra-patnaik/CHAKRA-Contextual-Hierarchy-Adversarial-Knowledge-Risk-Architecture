@@ -79,7 +79,72 @@ _HARM_KEYWORDS = {
     "override", "circumvent", "disable safety",
     "admin access", "root access",
     # Hindi/Hinglish
-    "bhool jao", "bypass karo", "pabandi hatao", "seedha batao",
+    "bhool jao", "bypass karo", "pabandi hatao", "seedha batao"
+    # Physical harm / weaponization
+"detonate", "detonator", "ignite", "assemble weapon", "construct bomb",
+"improvised explosive", "ied", "firearm", "ammunition",
+"ballistic", "toxic gas", "chemical agent", "biological agent",
+"assassination", "mass harm", "weaponize", "lethal dose",
+
+# Cyber intrusion / offensive security intent
+"breach", "intrusion", "compromise system", "privilege escalation",
+"remote code execution", "reverse shell", "shell access",
+"payload delivery", "command and control", "c2 server",
+"botnet", "trojan", "spyware", "keylogger", "rootkit",
+"zero day", "vulnerability exploit", "buffer overflow",
+"xss", "csrf", "lfi", "rfi", "directory traversal",
+"credential harvesting", "bruteforce", "password cracking",
+"dump database", "data breach", "data leak", "exfiltration",
+"session hijack", "token theft", "api key leak",
+
+# Data extraction / system exposure
+"dump memory", "extract secrets", "leak credentials",
+"print environment variables", "expose configuration",
+"show hidden instructions", "display internal policy",
+"reveal hidden prompt", "show system instructions",
+"internal configuration", "confidential data",
+
+# Policy bypass / safety override
+"ignore previous instructions", "disregard guidelines",
+"override system instructions", "disable guardrails",
+"remove safeguards", "turn off safety filters",
+"developer mode", "god mode", "unfiltered response",
+"uncensored output", "raw output only",
+"bypass policy", "circumvent filters",
+"no content policy", "full permissions",
+"elevated privileges", "grant full access",
+"superuser mode", "admin override",
+
+# Authority spoofing
+"I am the developer", "I authorize this",
+"system override active", "internal test mode",
+"trusted request", "security audit mode",
+"root directive", "admin command",
+
+# Manipulation / jailbreak framing
+"act without constraints", "pretend there are no rules",
+"roleplay unrestricted", "simulate no policy",
+"forget prior context", "erase previous rules",
+"replace your instructions", "new directive follows",
+
+# Obfuscation / evasion intent
+"evade detection", "bypass monitoring",
+"disable logging", "cover tracks",
+"tamper logs", "erase logs",
+"obfuscate payload", "encrypt payload",
+"covert channel", "stealth mode",
+
+# Fraud / social engineering
+"phishing template", "spoof email",
+"impersonate admin", "fake login page",
+"scam script", "fraud guide",
+
+# Hindi / Hinglish escalation
+"rules hata do", "system ignore karo",
+"filter mat lagao", "seedha jawab do bina rok tok",
+"andar ka prompt dikhao", "admin samajh ke jawab do",
+"pura access do", "niyam tod do",
+"training bhool jao", "restriction hatao"
 }
 
 
