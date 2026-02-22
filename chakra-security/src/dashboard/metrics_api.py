@@ -337,7 +337,8 @@ class MetricsCollector:
             total_b = sum(self._blocks.values())
             total_w = sum(self._warns.values())
             total_a = sum(self._allows.values())
-            total   = self._total_prompts or 1  # avoid div/0
+            # Only count actual user requests, not the stats API calls themselves
+            total   = self._total_prompts
 
             # Layer average contributions
             layer_avg = {}
@@ -378,9 +379,9 @@ class MetricsCollector:
             # ── Rates ─────────────────────────────────────────────
             "requests_per_minute": req_rate,
             "blocks_per_minute":   block_rate,
-            "block_rate_pct":      round(100 * total_b / total, 2),
-            "warn_rate_pct":       round(100 * total_w / total, 2),
-            "allow_rate_pct":      round(100 * total_a / total, 2),
+            "block_rate_pct":      round(100 * total_b / total, 2) if total > 0 else 0.0,
+            "warn_rate_pct":       round(100 * total_w / total, 2) if total > 0 else 0.0,
+            "allow_rate_pct":      round(100 * total_a / total, 2) if total > 0 else 0.0,
 
             # ── Latency ───────────────────────────────────────────
             "avg_latency_ms":  lat_stats["avg"],
@@ -399,7 +400,7 @@ class MetricsCollector:
 
             # ── LLM-specific ───────────────────────────────────────
             "total_prompt_chars":       self._total_prompt_chars,
-            "avg_prompt_chars":         round(self._total_prompt_chars / total, 1),
+            "avg_prompt_chars":         round(self._total_prompt_chars / total, 1) if total > 0 else 0.0,
             "model_usage":              dict(self._model_usage),
             "prompt_length_histogram":  self._prompt_len_histogram.get(),
 
