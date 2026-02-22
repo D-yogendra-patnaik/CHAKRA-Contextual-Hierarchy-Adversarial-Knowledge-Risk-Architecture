@@ -178,9 +178,9 @@ MIT License - see [LICENSE](LICENSE) © 2026
 
 ***
 
-**[status-badge]: https://img.shields.io/badge/status-production-green.svg**
-**[python-badge]: https://img.shields.io/badge/python-3.9%2B-blue.svg**
-**[license-badge]: https://img.shields.io/badge/license-MIT-yellow.svg**
-**[docs-badge]: https://img.shields.io/badge/docs-latest-blue.svg**
+**status: https://img.shields.io/badge/status-production-green.svg**
+**python: https://img.shields.io/badge/python-3.9%2B-blue.svg**
+**license: https://img.shields.io/badge/license-MIT-yellow.svg**
+**docs: https://img.shields.io/badge/docs-latest-blue.svg**
 
-*Built for banking-grade AI security* 🇮🇳⚡
+*Built for LLM security* 🇮🇳⚡
