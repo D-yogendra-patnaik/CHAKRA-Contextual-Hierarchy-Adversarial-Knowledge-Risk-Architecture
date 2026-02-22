@@ -1,6 +1,5 @@
 # CHAKRA - Contextual Hierarchy Adversarial Knowledge Risk Architecture
 
-[![Status][status-badge]][status-link] [![Python][python-badge]][python-link] [![License][license-badge]][license-link] [![Docs][docs-badge]][docs-link]
 
 **Real-time 5-layer AI jailbreak detection for banking chatbots. Blocks 99.8% attacks with 94% safe query precision. Hindi + English protection in 85-1200ms latency.**
 
