@@ -564,6 +564,12 @@ async def log_audit(
 # Endpoints
 # ══════════════════════════════════════════════════════════════════════════════
 
+@app.get("/")
+async def serve_index():
+    path = os.path.join(os.path.dirname(__file__), "dashboard", "realtime_dashboard.html")
+    return FileResponse(path, media_type="text/html")
+
+
 @app.get("/dashboard")
 async def serve_dashboard():
     path = os.path.join(os.path.dirname(__file__), "dashboard", "realtime_dashboard.html")
@@ -618,6 +624,7 @@ async def analyze_prompt(req: AnalyzeRequest, request: Request):
         app_state.metrics.record_warn(req.tenant)
     else:
         action = "ALLOW"
+        app_state.metrics.record_allow(req.tenant)
 
     asyncio.create_task(log_audit(user_id, req.tenant, req.prompt, risk_result, action, ip))
 
@@ -699,6 +706,8 @@ async def chat_completions(req: ChatCompletionRequest, request: Request):
     if risk_score >= policy["warn_threshold"]:
         app_state.metrics.record_warn(req.tenant)
         logger.warning(f"WARN [{req.tenant}] user={user_id} risk={risk_score:.3f}")
+    else:
+        app_state.metrics.record_allow(req.tenant)
 
     asyncio.create_task(log_audit(user_id, req.tenant, latest_prompt, risk_result, "ALLOW", ip))
 
